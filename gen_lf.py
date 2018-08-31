@@ -1,17 +1,33 @@
 #!/usr/bin/env
 
-# PYTHON 3
+# PYTHON 2.X or 3.X
 
 
 import argparse
 import parser
+import numbers
 import numpy as np
 import bisect
 import matplotlib.pyplot as plt
 
 
+
+
+def check_args_input(args):
+	"""
+	Force some of the command-line inputs
+	to adhere to certain boundary conditions.
+	"""
+
+	if args.nartstar > 2000: print("Warning: A large number of artificial stars can impact the accuracy of the photometry by introducing crowding effects.")
+	                                                                                                                                                            
+	assert args.mrange[0] < args.mrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
+
+
 def collect_args():
 	"""
+	Parse command-line arguments and store 
+	as variable.
 	"""
 
 	parser = argparse.ArgumentParser(description='Inputs from command line.')
@@ -20,7 +36,7 @@ def collect_args():
 	parser.add_argument("-p", "--plots", action="store_true",
         	help="Show plots of probability mass function, CDFs, and the luminosity function.")
 	parser.add_argument("-s","--slope", type=float, default=0.0, 
-		help='Default slope is zero (uniform distribution)')
+		help='Slope of luminosity function (dex). Default slope is zero (uniform distribution)')
 	parser.add_argument("-nstar", "--nartstar", type=int, default = 2000, 
 		help="number of artificial stars in the luminosity function")
 	parser.add_argument("-mrange", "--mrange", type=float, nargs='+',
@@ -28,24 +44,23 @@ def collect_args():
 	parser.add_argument("-o", "--outfile", type=argparse.FileType('w'),
                 help="filename to contain the output luminosity function", default="lum_fcn.dat")	
 
+	args = parser.parse_args()
+
+	check_args_input(args)
 	                                                                            
-	return parser.parse_args()
+	return args
 
-
-
-def check_args_input(args):
-	"""
-	"""
-
-	if args.nartstar > 2000: print("Warning: A large number of artificial stars can impact the accuracy of the photometry by introducing crowding effects.")
-	                                                                                                                                                            
-	assert args.mrange[0] < args.mrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
 
 def gen_prob_mass_fcn(args, star_mags):
 	"""
+	The relative abdunance of stars for a given slope
+	can be evaluated by simplying evaluating the
+	model luminosity function over the magnitude 
+	range given as an input. This relative abundance,
+	once normalized, is the probability mass function (PMF).
 	
-	Input:
-	Output:
+	Input: Command-line arguments, list of possible star magnitudes
+	Output: Probability mass function for the list of star magnitudes
 	"""
 
 	# Probability mass function follows the pre-defined slope or by default
@@ -54,7 +69,8 @@ def gen_prob_mass_fcn(args, star_mags):
 	
 	# The shape of this function is what matters, i.e.
 	# the relative probabilities. The function's exponential 
-	# is be scaled down to avoid any possible floating point errors
+	# is scaled down to avoid any possible floating point errors
+	# if the magnitude range is massive, for example
 
 	scale_fact = np.max(star_mags)
 
@@ -62,8 +78,8 @@ def gen_prob_mass_fcn(args, star_mags):
 	                                                                                       
 	# Normalize the probability mass function
 	# In general, this step is not necessary
-	# for our purposes but it is a good step for
-	# understanding how the CDF is produced.
+	# but it is a good step for understanding 
+	# how the CDF is produced.
 
 	total_prob_mass = np.sum(prob_mass_fcn)
 
@@ -74,25 +90,46 @@ def gen_prob_mass_fcn(args, star_mags):
 
 def gen_lf_from_CDF(args, CDF, star_mags):
 	"""
+	From the CDF, one can construct the appropriate
+	luminosity function for a random subset of stars
+	for the specified input parameters through
+	inverse transform sampling.
+
+	From a random uniform distribution, find the
+	closest location in the CDF. Find the position
+	in star magnitudes that corresponds to that 
+	location in the CDF and record the value.
+
+	The list of retreived star magnitudes will
+	follow the abundances that were determined
+	in the PMF.
+	
 	"""
 
+	# Array to hold the obtained star magnitudes
+	# that model the luminosity function
 	lum_fcn = np.zeros( args.nartstar )
 	
-	for el in range( len(lum_fcn) ):
+	# Loop through and obtain star magnitudes for
+	# the specified number of times
+
+	for el in range( args.nartstar ):
 
 		# Position in CDF, 0 to 1
-
 		pos_in_CDF = np.random.uniform()
 
 		# Get index of nearest position in CDF
 		# that is greater than pos_in_CDF
+		# CDF is sorted, so bisect (binary search)
+		# will work faster on average
 
 		nearby_index_in_CDF = bisect.bisect_left(CDF, pos_in_CDF)
 
-		# Compare index_in_CDF-1 and index_in_CDF and use the index
-		# that returns the value closest to pos_in_CDF
+		# Compare index_in_CDF-1 and index_in_CDF and use the index			
+		# that returns the value closest to pos_in_CDF					
 		
-		if nearby_index_in_CDF == 0: nearby_index_in_CDF += 1 # Cannot compare index < 0, so compare with index+1
+		# Cannot compare index < 0, so compare with index+1				
+		if nearby_index_in_CDF == 0: nearby_index_in_CDF += 1				 
 
 		dist_from_left  = np.abs( CDF[nearby_index_in_CDF - 1] - pos_in_CDF )
 		dist_from_right = np.abs( CDF[nearby_index_in_CDF] - pos_in_CDF )
@@ -109,9 +146,7 @@ def gen_lf_from_CDF(args, CDF, star_mags):
 
 		lum_fcn[ el ] = star_mags[ closest_index_in_CDF ] 
 
-
 	return lum_fcn
-
 
 
 def gen_lum_fcn(args):
@@ -127,22 +162,20 @@ def gen_lum_fcn(args):
 	In the case of a uniform distribution, the star
 	magnitudes are sampled directly from the random
 	uniform distribution. 
+
+	Input:	command line arguments to build the luminosity function
+	Output: the specified luminosity function
 	"""
 
 	# Generate array with all possible star magnitudes
 	# 0.001 mag spacing is assumed for more-than-adequate
 	# coverage of the spacing between magnitudes.
 
-	star_mags = [ x for x in np.arange( args.mrange[0], args.mrange[1], 0.001) ]
+	star_mags = np.arange( args.mrange[0], args.mrange[1], 0.001) 
 
 	# Obtain the probability mass function for star mags
 
 	norm_prob_mass_fcn = gen_prob_mass_fcn(args, star_mags)
-
-	if args.plots:
-		plt.scatter(star_mags,norm_prob_mass_fcn)
-		plt.ylim(0,0.001)
-		plt.show()
 
 	# Cumulative distribution function for a given position x
 	# is defined as the sum over the probability mass function
@@ -150,14 +183,28 @@ def gen_lum_fcn(args):
 
 	CDF = np.cumsum( norm_prob_mass_fcn )
 	
-	if args.plots:
-		plt.scatter(star_mags,CDF)
-		plt.show()
-
 	# Construct luminosity function from inverse transforms sampling from a 
 	# uniform random distribution
 
-	return gen_lf_from_CDF( args, CDF, star_mags )
+	lum_fcn = gen_lf_from_CDF( args, CDF, star_mags )
+
+
+	# Show plots if requested
+
+	if args.plots:
+        	plt.scatter(star_mags,norm_prob_mass_fcn)
+        	plt.ylim(0,0.001)
+        	plt.show()
+
+        	plt.scatter(star_mags,CDF)
+        	plt.show()
+
+        	plt.hist(lum_fcn)
+        	plt.show()
+
+
+	return lum_fcn
+
 
 def write_lf(args, lum_fcn):
 	"""
@@ -177,27 +224,21 @@ if __name__ == "__main__":
 	luminosity function (default uniform with
 	slope zero). 
 
-	Input:
-	Output:
+	Input: Min and Max magnitude range
+	Output: File with random sample of star magnitudes
+		 that follow the specified input.
 	"""
 
 	# Parse command line input
 
 	args = collect_args()
 
-	# Check validity of input parameters
-
-	check_args_input(args)
-
 	# Proceed to generate the luminosity function
 
 	lum_fcn = gen_lum_fcn(args)
 
-	if args.plots:
-		plt.hist(lum_fcn)
-		plt.show()
-
 	# Write the luminosity function file
+
 	write_lf(args, lum_fcn)
 
 
