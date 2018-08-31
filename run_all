@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Parameter file
+
+input_params="input_params.dat"
+
+# Ensure libraries are loaded
+# Here is use the Astroconda distribution
+
+source activate astroconda
+
+# Store input_params.dat as variables
+# grep retrieves line containing variable
+# then grep output is fed into another grep
+# command to retrieve its numerical value
+# Values can be any sign, size, and integer or float
+
+Nartstar=`grep "N_artstar" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+TRGB_mag=`grep "TRGB_mag" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+RGB_max=`grep "RGB_max" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+AGB_min=`grep "AGB_min" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+RGB_slope=`grep "RGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+AGB_slope=`grep "AGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+
+# Generate the RGB luminosity function
+
+python gen_lf.py -nstar $Nartstar -mrange $TRGB_mag $RGB_max -s $RGB_slope -o rgb_lum_fcn.dat 
+
+# Generate the AGB luminosity function
+
+python gen_lf.py -nstar $Nartstar -mrange $AGB_min $RGB_max -s $AGB_slope -o agb_lum_fcn.dat 
+
+# Generate the ADDSTAR files
+
+
+

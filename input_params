@@ -1,0 +1,6 @@
+N_artstar 	2000	# Number of artificial stars per image/iteration
+TRGB_mag 	20.2	# instrumental mag of input TRGB, same as RGB_min
+RGB_max 	21.2	# Extent of RGB below input TRGB mag
+AGB_min 	19.2	# Extent of AGB above the TRGB mag 
+RGB_slope 	0.3	# Slope of RGB in dex
+AGB_slope 	0.1	# Slope of AGB in dex
