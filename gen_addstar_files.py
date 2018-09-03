@@ -6,8 +6,9 @@
 import argparse
 import parser
 import numpy as np
+import bisect
+from math import floor
 from scipy.optimize import fsolve
-#import os.path
 
 
 def map_XY_coord(guess_coeff, params):
@@ -15,6 +16,10 @@ def map_XY_coord(guess_coeff, params):
 	Use the DAOPHOT .mch file coefficients
 	to invert the DAOMASTER transformation equations
 	and find where stars in one images should lie in another
+
+	This function is combined with the fsolve routine to 
+	numerically approximate the values x and y that solve
+	the two non-linear transformation equations.
 	"""
 
 	x, y = guess_coeff
@@ -23,25 +28,28 @@ def map_XY_coord(guess_coeff, params):
 
 	x0, y0, RCOL, RROW, coeffs = params
 
+	# Variables defined in daomaster.f
+
 	XS = 2. * (x - 1.)/(RCOL - 1.) - 1.
 	YS = 2. * (y - 1.)/(RROW - 1.) - 1.
 	XY = XS * YS
 	X2 = 1.5 * XS**2. - 0.5
 	Y2 = 1.5 * YS**2. - 0.5
 
+	# Transformation terms defined in daomaster.f
+
 	LINEAR_TERMS_X = coeffs[0] + coeffs[2] * x + coeffs[4] * y
 	LINEAR_TERMS_Y = coeffs[1] + coeffs[3] * x + coeffs[5] * y
-	QUAD_TERMS_X = coeffs[6]*X2 + coeffs[8]*XY + coeffs[10]*Y2
-	QUAD_TERMS_Y = coeffs[7]*X2 + coeffs[9]*XY + coeffs[11]*Y2
-	CUBIC_TERMS_X = ( coeffs[12]*XS + coeffs[14]*YS )*X2 + ( coeffs[16]*XS + coeffs[18]*YS )*Y2
-	CUBIC_TERMS_Y = ( coeffs[13]*XS + coeffs[15]*YS )*X2 + ( coeffs[17]*XS + coeffs[19]*YS )*Y2 
+	QUAD_TERMS_X = coeffs[6] * X2 + coeffs[8] * XY + coeffs[10] * Y2
+	QUAD_TERMS_Y = coeffs[7] * X2 + coeffs[9] * XY + coeffs[11] * Y2
+	CUBIC_TERMS_X = ( coeffs[12] * XS + coeffs[14] * YS ) * X2 + ( coeffs[16] * XS + coeffs[18] * YS ) * Y2
+	CUBIC_TERMS_Y = ( coeffs[13] * XS + coeffs[15] * YS ) * X2 + ( coeffs[17] * XS + coeffs[19] * YS ) * Y2 
 
+	# Simultaneously solve the system of equations and return the result
 
-	return ( -x0 + LINEAR_TERMS_X + QUAD_TERMS_X + CUBIC_TERMS_X, -y0 + LINEAR_TERMS_Y + QUAD_TERMS_Y + CUBIC_TERMS_Y )
+	return ( -x0 + LINEAR_TERMS_X + QUAD_TERMS_X + CUBIC_TERMS_X, 
+		 -y0 + LINEAR_TERMS_Y + QUAD_TERMS_Y + CUBIC_TERMS_Y )
 	
-
-	
-
 
 def check_args_input(args):
 	"""
@@ -65,12 +73,16 @@ def collect_args():
 	parser = argparse.ArgumentParser(description='Inputs from command line.')
 	parser.add_argument("-v", "--verbose", action="store_true",
 		help="Increase output verbosity")
+	parser.add_argument("-nstar", "--nartstar", type=int, default = 2000, 
+		help="number of artificial stars in the luminosity function")
 	parser.add_argument("-d", "--imagedim", type=float, nargs='+',
                 help="The X and Y dimensions of the images.",required=True)
 	parser.add_argument("-r", "--RGB_AGB_ratio", type=float,
                 help="RGB:AGB at TRGB interface",default=1.0)
-	parser.add_argument("-t", "--trgbrange", type=float,
+	parser.add_argument("-tr", "--trgbrange", type=float,
                 help="Magnitude range around TRGB considered part of 'TRGB interface'",default=0.25)
+	parser.add_argument("-tm", "--trgbmag", type=float,
+                help="Magnitude of TRGB", required=True)
 	parser.add_argument("-f", "--lfs", type=argparse.FileType('r'), nargs='+',
                 help="The RGB and AGB luminosity functions",required=True)
 	parser.add_argument("-c", "--colors", type=float, nargs='+',
@@ -83,13 +95,58 @@ def collect_args():
 	                                                                            
 	return args
 
-def count_stars_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
+def count_stars_in_range(lum_fcn, start_range, end_range):
+
+	num_stars=0.
+
+	curr_position = bisect.bisect_left(lum_fcn,start_range)
+
+	while lum_fcn[curr_position] <= end_range:
+		num_stars += 1.
+		curr_position += 1
+
+	return num_stars
+
+def RGB_AGB_ratio_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
 	"""
-	pass
+
+	start_range = args.trgbmag - args.trgbrange
+	end_range   = args.trgbmag + args.trgbrange
+
+	# Count the number of stars in magnitude range around the TRGB for each class
+
+	num_RGB = count_stars_in_range(rgb_lum_fcn, start_range, end_range)
+	num_AGB = count_stars_in_range(agb_lum_fcn, start_range, end_range)
+
+	if num_RGB == 0 or num_AGB == 0:
+		print("WARNING: All RGB or AGB stars at the TRGB interface have been removed!")
+		exit(1)
+	
+	return num_RGB/num_AGB
+
+
+def remove_star(lum_fcn):
+	"""
+	Written as separate function to generalize the 
+	same operation for the RGB and AGB components
+	"""
+
+	pos_to_remove = floor( np.random.uniform()*len(lum_fcn) )
+                                                                      
+	lum_fcn.pop( pos_to_remove )
+
+	return lum_fcn
+
 
 def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
+
+	Currently not optimized for speed since each element
+	removal requires reallocation of memory for the entire
+	luminosity function. In the case of small luminosity functions,
+	say at most 2000 stars, this performs reasonably quickly.
+
 	"""
 
 	# Adjust the number of RGB:AGB number to the
@@ -98,18 +155,29 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	# decrease one population or the other to 
 	# achieve the correct balance
 	
-	temp_star_list = list() 	# To hold downsampled LF
-	star_incr = 5 			# The step size to rebalance the LF
-	current_ratio_at_TRGB = 9999.
+	current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)
 	                                                                    
-	if args.RGB_AGB_ratio > 1:	# RGB:AGB > 1, more RGB than AGB
+	if args.RGB_AGB_ratio > 1: # RGB:AGB > 1, more RGB than AGB
+
 		while current_ratio_at_TRGB < args.RGB_AGB_ratio:
-			pass
 			
+			# Reduce AGB count by star_incr at random
+			# Always round down (floor) so that there is
+			# never an index error at len(agb_lum_fcn) 
+
+			agb_lum_fcn = remove_star(agb_lum_fcn)
+
+			# Calculate updated ratio
+
+			current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
 	                                                                    
-	else:				# RGB:AGB < 1, more AGB than RGB
+	else: # RGB:AGB < 1, more AGB than RGB
+
 		while current_ratio_at_TRGB > args.RGB_AGB_ratio:
-			pass
+
+			rgb_lum_fcn = remove_star(rgb_lum_fcn)
+			                                                                                 
+			current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 
@@ -131,14 +199,44 @@ def load_lfs(args):
 	# if anythig other than the default 1.0 is specified	
 
 	if args.RGB_AGB_ratio != 1.0: 
+
+		# Sort in increasing magnitude for some computation 
+		# speed when adjusting for the RGB:AGB ratio
+
+		rgb_lum_fcn.sort()
+		agb_lum_fcn.sort()	
+
 		rgb_lum_fcn, agb_lum_fcn = adjust_RGB_AGB_ratio(args, rgb_lum_fcn, agb_lum_fcn)	
+
+	# Now that the luminosity functions have the right balance
+        # of RGB and AGB populations, we need to adjust each luminosity
+        # function such that n_rgb+n_agb <= nartstar, i.e.
+        # we do not exceed the maximum we want within the images
+                                                                    
+	while len(rgb_lum_fcn) + len(agb_lum_fcn) > args.nartstar:
+        	
+        	rgb_lum_fcn = remove_star(rgb_lum_fcn)
+        	agb_lum_fcn = remove_star(agb_lum_fcn)
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 
 
 def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
+	"""
+	"""
 
 	
+	
+	
+	
+
+	
+		
+
+
+	# Read in the .mch file coefficients
+
+
 	# Temp
 	x0, y0 = 5,50
 
@@ -149,7 +247,10 @@ def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
 
 	# Coeffs are a list within the list of params
 	#coeffs=[-3.5902,-3.6476,1.000055786,0.000057921,0.000120263,1.000246524,-0.16793649,-0.20200588,-0.14784137,0.156522376,-0.10951879,0.514530480,-0.17102246,0.297778067,0.354187830,0.152300631,0.220135105,-0.08607051,0.021139762,-1.08764398]
-	#coeffs=[0.,0.,1.,0.,0.,1.0,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.] 
+	coeffs=[0.,0.,1.,0.,0.,1.0,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.] 
+
+	# Solve for the star coordinates in the another image
+	# using the DAOMASTER .mch coefficients
 
 	params = [ x0, y0, args.imagedim[0], args.imagedim[1], coeffs ]
 	
@@ -168,8 +269,8 @@ if __name__ == "__main__":
 
 	args = collect_args()
 
-	# Based on luminosity functions and the desired ratio RGB:AGB, adjust the populations
 	# Load the luminosity functions derived in gen_lf.py
+	# Based on the desired ratio RGB:AGB, adjust the populations 
 
 	rgb_lum_fcn, agb_lum_fcn = load_lfs(args)	
 
@@ -178,8 +279,5 @@ if __name__ == "__main__":
 
 	gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn)
 
-	# Write the luminosity function file
-
-	#write_lf(args, lum_fcn)
 
 
