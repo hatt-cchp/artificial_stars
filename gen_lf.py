@@ -5,7 +5,6 @@
 
 import argparse
 import parser
-import numbers
 import numpy as np
 import bisect
 import matplotlib.pyplot as plt
@@ -17,17 +16,18 @@ def check_args_input(args):
 	"""
 	Force some of the command-line inputs
 	to adhere to certain boundary conditions.
+
+	Any condition not satisfied will produce an
+	assertion error and exit the program.
 	"""
 
 	if args.nartstar > 2000: print("Warning: A large number of artificial stars can impact the accuracy of the photometry by introducing crowding effects.")
-	                                                                                                                                                            
 	assert args.mrange[0] < args.mrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
 
 
 def collect_args():
 	"""
-	Parse command-line arguments and store 
-	as variable.
+	Parse command-line arguments and store as variable.
 	"""
 
 	parser = argparse.ArgumentParser(description='Inputs from command line.')
@@ -59,7 +59,7 @@ def gen_prob_mass_fcn(args, star_mags):
 	range given as an input. This relative abundance,
 	once normalized, is the probability mass function (PMF).
 	
-	Input: Command-line arguments, list of possible star magnitudes
+	Input: Command-line arguments, list of all possible star magnitudes
 	Output: Probability mass function for the list of star magnitudes
 	"""
 
@@ -103,6 +103,13 @@ def gen_lf_from_CDF(args, CDF, star_mags):
 	The list of retreived star magnitudes will
 	follow the abundances that were determined
 	in the PMF.
+
+	Input: command-line arguments, cumulative distribution function
+		of the specified luminosity funciton, and the list of
+		possible star magnitudes.
+	Output: A randomly sampled luminosity function that follows
+		the specifications provided by the user with size
+		equal to nartstar.
 	
 	"""
 
@@ -135,12 +142,10 @@ def gen_lf_from_CDF(args, CDF, star_mags):
 		dist_from_right = np.abs( CDF[nearby_index_in_CDF] - pos_in_CDF )
 
 		if dist_from_left < dist_from_right:
-	
-			closest_index_in_CDF = nearby_index_in_CDF - 1
 
+			closest_index_in_CDF = nearby_index_in_CDF - 1
 		else:
 			closest_index_in_CDF = nearby_index_in_CDF
-
 
 		# Add star with matching index to luminosity function
 
@@ -188,7 +193,6 @@ def gen_lum_fcn(args):
 
 	lum_fcn = gen_lf_from_CDF( args, CDF, star_mags )
 
-
 	# Show plots if requested
 
 	if args.plots:
@@ -202,18 +206,23 @@ def gen_lum_fcn(args):
         	plt.hist(lum_fcn)
         	plt.show()
 
-
 	return lum_fcn
 
 
 def write_lf(args, lum_fcn):
 	"""
+	Write the derived luminosity function to file.
+	The filename is provided by the -o command line
+	command.
+
+	Input: The derived luminosity function
+	Output: The luminosity function written to the
+		working directory.
 	"""
 
 	with args.outfile as f:
 		for el in lum_fcn:
 			f.write( "{:15.3f}\n".format(el) )
-
 
 
 if __name__ == "__main__":

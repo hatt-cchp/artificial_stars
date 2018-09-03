@@ -2,7 +2,7 @@
 
 # Parameter file
 
-input_params="input_params.dat"
+input_params="input_params"
 
 # Ensure libraries are loaded
 # Here is use the Astroconda distribution
@@ -21,6 +21,10 @@ RGB_max=`grep "RGB_max" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'`
 AGB_min=`grep "AGB_min" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
 RGB_slope=`grep "RGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
 AGB_slope=`grep "AGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+X_image_dim=`grep "X_image_dim" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+Y_image_dim=`grep "Y_image_dim" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+TRGB_interface=`grep "TRGB_interface" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+
 
 # Generate the RGB luminosity function
 
@@ -32,5 +36,6 @@ python gen_lf.py -nstar $Nartstar -mrange $AGB_min $RGB_max -s $AGB_slope -o agb
 
 # Generate the ADDSTAR files
 
+python gen_addstar_files.py -f rgb_lum_fcn.dat agb_lum_fcn.dat -d 4096 2048 -r 4.0 -c 1.0 1.5
 
 
