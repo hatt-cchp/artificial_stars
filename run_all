@@ -4,27 +4,29 @@
 
 input_params="input_params"
 
-# Ensure libraries are loaded
-# Here is use the Astroconda distribution
+# Ensure scipy libraries are loaded
+# Used here is the Astroconda distribution
 
 source activate astroconda
 
-# Store input_params.dat as variables
+# Store input_params as variables
 # grep retrieves line containing variable
 # then grep output is fed into another grep
 # command to retrieve its numerical value
 # Values can be any sign, size, and integer or float
 
-Nartstar=`grep "N_artstar" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-TRGB_mag=`grep "TRGB_mag" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-RGB_max=`grep "RGB_max" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-AGB_min=`grep "AGB_min" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-RGB_slope=`grep "RGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-AGB_slope=`grep "AGB_slope" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-X_image_dim=`grep "X_image_dim" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-Y_image_dim=`grep "Y_image_dim" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-TRGB_interface=`grep "TRGB_interface" input_params.dat | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
-
+Nartstar=`grep "N_artstar" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+TRGB_mag=`grep "TRGB_mag" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+RGB_max=`grep "RGB_max" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+AGB_min=`grep "AGB_min" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+RGB_slope=`grep "RGB_slope" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+AGB_slope=`grep "AGB_slope" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+X_image_dim=`grep "X_image_dim" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+Y_image_dim=`grep "Y_image_dim" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+RGB_AGB_ratio=`grep "RGB_AGB_ratio" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+TRGB_interface=`grep "TRGB_interface" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+min_color=`grep "min_color" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
+max_color=`grep "max_color" input_params | grep -o '[+-]\?[0-9]\+[\.]\?[0-9]\+'` 
 
 # Generate the RGB luminosity function
 
@@ -36,6 +38,9 @@ python gen_lf.py -nstar $Nartstar -mrange $AGB_min $RGB_max -s $AGB_slope -o agb
 
 # Generate the ADDSTAR files
 
-python gen_addstar_files.py -f rgb_lum_fcn.dat agb_lum_fcn.dat -d 4096 2048 -r 4.0 -c 1.0 1.5
+python gen_addstar_files.py -f rgb_lum_fcn.dat agb_lum_fcn.dat -d $X_image_dim $Y_image_dim -r $RGB_AGB_ratio -c $min_color $max_color -tm $TRGB_mag -nstar $Nartstar
+
+
+
 
 
