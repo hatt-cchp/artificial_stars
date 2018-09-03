@@ -132,6 +132,9 @@ def remove_star(lum_fcn):
 	same operation for the RGB and AGB components
 	"""
 
+	# Always round down (floor) so that there is
+        # never an index error at len(agb_lum_fcn) 
+
 	pos_to_remove = floor( np.random.uniform()*len(lum_fcn) )
                                                                       
 	lum_fcn.pop( pos_to_remove )
@@ -149,35 +152,68 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 
 	"""
 
-	# Adjust the number of RGB:AGB number to the
-	# desired input: RGB_AGB_ratio
-	# From gen_lf.py, populations are 1:1, so
-	# decrease one population or the other to 
-	# achieve the correct balance
+	 # Decrease the total number of artificial stars
+	 # until the desired number is reached.
+	 # By default from gen_lf.py, there will be
+	 # more than enough artficial stars sampled
+	 # that one can reduce one population to meet
+	 # the specified ratio.
+	 
+	 # At each iteration of reducing the number of
+	 # artificial stars, try to 
+	 
+	 # Adjust the number of RGB:AGB number to the
+	 # desired input: RGB_AGB_ratio
+	 # From gen_lf.py, populations are 1:1, so
+	 # decrease one population or the other to 
+	 # achieve the correct balance
+
+	while len(rgb_lum_fcn) + len(agb_lum_fcn) > args.nartstar:
 	
-	current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)
-	                                                                    
-	if args.RGB_AGB_ratio > 1: # RGB:AGB > 1, more RGB than AGB
+		# Too many artificial stars, so remove a pair
+		# and keep approx. the same ratio RGB:AGB
 
-		while current_ratio_at_TRGB < args.RGB_AGB_ratio:
-			
-			# Reduce AGB count by star_incr at random
-			# Always round down (floor) so that there is
-			# never an index error at len(agb_lum_fcn) 
+		rgb_lum_fcn = remove_star( rgb_lum_fcn )
+		agb_lum_fcn = remove_star( agb_lum_fcn )
 
-			agb_lum_fcn = remove_star(agb_lum_fcn)
+		current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)
 
-			# Calculate updated ratio
+		# Re-balance ratio of RGB:AGB
+		                                                                    
+		# Too few RGB, need to remove AGB
+		if current_ratio_at_TRGB < args.RGB_AGB_ratio:
 
-			current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
-	                                                                    
-	else: # RGB:AGB < 1, more AGB than RGB
+			print("AGB",current_ratio_at_TRGB)
 
-		while current_ratio_at_TRGB > args.RGB_AGB_ratio:
+			while current_ratio_at_TRGB < args.RGB_AGB_ratio:
+				
+				# Reduce AGB count by star_incr at random
+				
+				agb_lum_fcn = remove_star( agb_lum_fcn )
 
-			rgb_lum_fcn = remove_star(rgb_lum_fcn)
-			                                                                                 
-			current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
+				# Calculate updated ratio
+
+				current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
+		               
+			print("removing AGB",current_ratio_at_TRGB)                                                     
+
+		# Too few AGB, need to move RGB
+		elif current_ratio_at_TRGB > args.RGB_AGB_ratio: 
+
+			print("RGB",current_ratio_at_TRGB)
+
+			while current_ratio_at_TRGB > args.RGB_AGB_ratio:
+
+				rgb_lum_fcn = remove_star( rgb_lum_fcn )
+				                                                                                 
+				current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
+
+			print("removing RGB",current_ratio_at_TRGB)                                                     
+
+		else: pass # Ratio is perfect, continue removing equal numbers of RGB and AGB until desired count is reached
+
+	print(RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn),len(rgb_lum_fcn)+len(agb_lum_fcn))
+	exit(0)
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 
@@ -196,27 +232,31 @@ def load_lfs(args):
         	agb_lum_fcn = [float(line) for line in f.readlines()]
 
 	# Re-balance the relative number of RGB:AGB stars
-	# if anythig other than the default 1.0 is specified	
+	# and ensure that the total number of stars does not 
+	# exceed nartstar
 
-	if args.RGB_AGB_ratio != 1.0: 
+	# Sort with increasing magnitude for some computation 
+	# speed when adjusting for the RGB:AGB ratio
 
-		# Sort in increasing magnitude for some computation 
-		# speed when adjusting for the RGB:AGB ratio
+	rgb_lum_fcn.sort()
+	agb_lum_fcn.sort()	
 
-		rgb_lum_fcn.sort()
-		agb_lum_fcn.sort()	
-
-		rgb_lum_fcn, agb_lum_fcn = adjust_RGB_AGB_ratio(args, rgb_lum_fcn, agb_lum_fcn)	
+	rgb_lum_fcn, agb_lum_fcn = adjust_RGB_AGB_ratio(args, rgb_lum_fcn, agb_lum_fcn)	
 
 	# Now that the luminosity functions have the right balance
         # of RGB and AGB populations, we need to adjust each luminosity
         # function such that n_rgb+n_agb <= nartstar, i.e.
-        # we do not exceed the maximum we want within the images
+        # we do not exceed the maximum we want within the images.
+	# Remove both in equal numbers to ensure that the ratio
+	# of RGB to AGB remains fixed
                                                                     
-	while len(rgb_lum_fcn) + len(agb_lum_fcn) > args.nartstar:
-        	
-        	rgb_lum_fcn = remove_star(rgb_lum_fcn)
-        	agb_lum_fcn = remove_star(agb_lum_fcn)
+	#while len(rgb_lum_fcn) + len(agb_lum_fcn) > args.nartstar:
+        #	
+        #	rgb_lum_fcn = remove_star(rgb_lum_fcn)
+        #	agb_lum_fcn = remove_star(agb_lum_fcn)
+
+	# NEED TO SIMULTANEOUSLY APPROACH THE DESIRED NUMBER OF AGB STARS
+	print(len(rgb_lum_fcn) + len(agb_lum_fcn),RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn))
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 
@@ -224,15 +264,6 @@ def load_lfs(args):
 def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
 	"""
 	"""
-
-	
-	
-	
-	
-
-	
-		
-
 
 	# Read in the .mch file coefficients
 
