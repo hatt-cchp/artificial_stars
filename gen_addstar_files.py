@@ -96,8 +96,18 @@ def collect_args():
 	return args
 
 def count_stars_in_range(lum_fcn, start_range, end_range):
+	"""
+	Since the start_range will always be brighter than
+	the TRGB (start of RGB), the RGB should always start
+	at index 0.	
+	"""
 
 	num_stars=0.
+
+	# Get the first index that appears that matches
+	# the input value. If not match exists, return
+	# the next element (which will be the next highest
+	# element since the list is monotonically increasing) 
 
 	curr_position = bisect.bisect_left(lum_fcn,start_range)
 
@@ -128,8 +138,14 @@ def RGB_AGB_ratio_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
 
 def remove_star(lum_fcn):
 	"""
+	Want to remove stars from the entire 
+	luminosity function instead of just at the
+	TRGB interface. In some instances, the
+	RGB:AGB will therefore be unchanged.
+
 	Written as separate function to generalize the 
 	same operation for the RGB and AGB components
+
 	"""
 
 	# Always round down (floor) so that there is
@@ -144,33 +160,29 @@ def remove_star(lum_fcn):
 
 def rebalance_lfs(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
+	If current RGB:AGB ratio does not match
+	the specified value, re-balance ratio of RGB:AGB
+	                                                                  	
+	If too few RGB, need to remove AGB
+	Keep removing AGB stars until ratio is met
+
 	"""
 
-	# If current RGB:AGB ratio does not match
-	# the specified value, re-balance ratio of RGB:AGB
-	                                                                    
-	# If too few RGB, need to remove AGB
-	# Keep removing AGB stars until ratio is met
+	# desired RGB:AGB > current RGB:AGB
 
-	current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)
-
-	while current_ratio_at_TRGB < args.RGB_AGB_ratio:
+	while args.RGB_AGB_ratio > RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn):
 		
-		# Reduce AGB count by star_incr at random
+		# Reduce AGB count
 		
 		agb_lum_fcn = remove_star( agb_lum_fcn )
 
-		# Calculate updated ratio
+	# desired RGB:AGB < current RGB:AGB
 
-		current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
+	while args.RGB_AGB_ratio < RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn):
 
-	# Too few AGB, need to move RGB
-
-	while current_ratio_at_TRGB > args.RGB_AGB_ratio:
+		# Reduce RGB count
 
 		rgb_lum_fcn = remove_star( rgb_lum_fcn )
-		                                                                                 
-		current_ratio_at_TRGB = RGB_AGB_ratio_at_TRGB(args, rgb_lum_fcn, agb_lum_fcn)	
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 
@@ -211,8 +223,7 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	
 	rgb_lum_fcn, agb_lum_fcn = rebalance_lfs(args, rgb_lum_fcn, agb_lum_fcn)
 
-
-	# Max nartstar condition
+	# Enforce max nartstar condition
 
 	while len(rgb_lum_fcn) + len(agb_lum_fcn) > args.nartstar:
 	
@@ -223,7 +234,6 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 		agb_lum_fcn = remove_star( agb_lum_fcn )
 
 		rgb_lum_fcn, agb_lum_fcn = rebalance_lfs(args, rgb_lum_fcn, agb_lum_fcn)
-
 
 	return [rgb_lum_fcn, agb_lum_fcn]
 

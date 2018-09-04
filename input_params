@@ -7,5 +7,7 @@ AGB_slope 	0.1	# Slope of AGB in dex
 
 X_image_dim	4096	# Size of image X-dimension in pixels
 Y_image_dim	2048	# Size of image Y-dimension in pixels
-RGB_AGB_ratio	4.0	# Ratio of RGB to AGB stars at the TRGB
+RGB_AGB_ratio	1.0	# Ratio of RGB to AGB stars at the TRGB
 TRGB_interface	0.25	# Magnitude range around TRGB considered part of "TRGB interface", for setting RGB to AGB ratio
+min_color	1.0	# Blue edge of RGB
+max_color	1.5	# Red edge of RGB
