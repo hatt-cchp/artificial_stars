@@ -22,7 +22,7 @@ def check_args_input(args):
 	"""
 
 	if args.nartstar > 2000: print("Warning: A large number of artificial stars can impact the accuracy of the photometry by introducing crowding effects.")
-	assert args.mrange[0] < args.mrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
+	assert args.magrange[0] < args.magrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
 
 
 def collect_args():
@@ -39,7 +39,7 @@ def collect_args():
 		help='Slope of luminosity function (dex). Default slope is zero (uniform distribution)')
 	parser.add_argument("-nstar", "--nartstar", type=int, default = 2000, 
 		help="number of artificial stars in the luminosity function")
-	parser.add_argument("-mrange", "--mrange", type=float, nargs='+',
+	parser.add_argument("-magrange", "--magrange", type=float, nargs='+',
 		help="Min then Max value of the luminosity function",required=True)
 	parser.add_argument("-o", "--outfile", type=argparse.FileType('w'),
                 help="filename to contain the output luminosity function", default="lum_fcn.dat")	
@@ -176,7 +176,7 @@ def gen_lum_fcn(args):
 	# 0.001 mag spacing is assumed for more-than-adequate
 	# coverage of the spacing between magnitudes.
 
-	star_mags = np.arange( args.mrange[0], args.mrange[1], 0.001) 
+	star_mags = np.arange( args.magrange[0], args.magrange[1], 0.001) 
 
 	# Obtain the probability mass function for star mags
 

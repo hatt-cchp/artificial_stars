@@ -9,6 +9,7 @@ import numpy as np
 import bisect
 from math import floor
 from scipy.optimize import fsolve
+from astropy.io import fits
 
 
 def map_XY_coord(guess_coeff, params):
@@ -59,8 +60,7 @@ def check_args_input(args):
 
 	# Check existence of luminosity functions
 
-	#assert os.path.isfile(args.lfs[0]) 
-	#assert os.path.isfile(args.lfs[1]) 
+	pass
 
 
 
@@ -85,9 +85,10 @@ def collect_args():
                 help="Magnitude of TRGB", required=True)
 	parser.add_argument("-f", "--lfs", type=argparse.FileType('r'), nargs='+',
                 help="The RGB and AGB luminosity functions",required=True)
+	parser.add_argument("-mf", "--matchfile", type=argparse.FileType('r'),
+                help="DAOMASTER match file",required=True)
 	parser.add_argument("-c", "--colors", type=float, nargs='+',
                 help="Color range for the artifical stars",required=True)
-
 
 	args = parser.parse_args()
 
@@ -257,38 +258,151 @@ def load_lfs(args):
 	return adjust_RGB_AGB_ratio(args, rgb_lum_fcn, agb_lum_fcn) 
 
 
+def extract_mch_file_contents(args):
+	"""
+	DAOMASTER .mch file has a rigid structure.
+	Extracting information from the file therefore
+	has a specific set of steps or components
+	to ignore.
+	"""
+
+	# Read .mch file contents into a list
+
+	with args.matchfile as f:  match_file_contents = f.readlines()
+
+
+	# Go line by line and parse the .mch file contents
+
+	filenames    = list()
+	coeffs       = list()
+	filters      = list()
+	ref_exptimes = list()
+
+	for line in match_file_contents:
+	
+		parts = line.split()
+
+		# Remove apostrophe from filename 
+
+		filename_split = parts[0].split('\'')
+		filename = filename_split[1]
+
+		filenames.append(filename)
+
+		# Transformation coefficients 
+
+		coeff  = [ float(x) for x in parts[2:] ]
+
+		# Remove 6th and 7th values: average mag offset 
+		# and other non-essential info
+
+		coeff.pop(6) # shifts list left
+		coeff.pop(6)	
+
+		coeffs.append(coeff)
+
+		# Get unique filters, keep track of exptime of first instance of new filter
+		# These will be used to set every artstar to the same magnitude, i.e.
+		# account for exptime differences between exposures
+
+		fits_filename = filename.split('.')[0]+'.fits'
+		with fits.open(fits_filename) as hdu:
+
+			curr_filter = (hdu[0].header['FILTER'])
+		
+			# If first instance of a filter in the .mch file
+
+			if curr_filter not in filters: 
+
+				filters.append(curr_filter)
+
+				# Since have the first instance of a filter,
+				# Record the associated exptime time
+
+				curr_exptime = (hdu[0].header['EXPTIME'])
+				ref_exptimes.append(curr_exptime)
+
+
+	# For convenience, convert the filter and exptime
+	# lists into a dictionary object
+
+	filter_and_ref_exptime = {}
+	for curr_filt,curr_exptime in zip(filters,ref_exptimes):
+		filter_and_ref_exptime[curr_filt]=curr_exptime 
+
+
+	return [filenames, coeffs, filter_and_ref_exptime] 
+
+
 def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
 	"""
+	Read in .mch file and 
+		(1) add headers to .add files
+		(2) store image transformation coefficients
+		(3) record the image exposure times
+
+	For each artificial star, assign it a color (using
+	the base magnitude from the LFs plus some additional 
+	value that is assigned randomly)
+
+	Loop through each image and write the star to 
+	its respective .add file. When second filter
+	images are used, use the other color.
+
 	"""
+
+
+
+	# Assign random colors and positions 
+	# Option to include own position input
+	
+	# gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn)	
+
+
 
 	# Read in the .mch file coefficients
 
+	filenames, coeffs, filter_and_ref_exptime = extract_mch_file_contents(args)
 
-	# Temp
-	x0, y0 = 5,50
+	# Get list of unique filters
 
-	# Use the reference coordinates x0, y0 as a first
-	# guess for the mapped coordinates
+
+	# Obtain the reference exposure time for each passband
+
+
+	# Loop through each file, transform coordinates
+	# for each images and add artificial stars to .add files
+
+	for file_loop in range( len(filenames) ):
+
+
+		# CREATE BETTER LOOP INDEX HERE
+		for star_loop in range( len( rgb_lum_fcn) + len( agb_lum_fcn )  ):
+
+
+			# Use the reference coordinates x0, y0 as a first		
+                	# guess for the mapped coordinates. From coeffs,
+			# these are the first two values
+
+			x0, y0 = coeffs[file_loop][0], coeffs[file_loop][1]
 	
-	guess_coord = (x0, y0)
+			guess_coord = (x0, y0)
 
-	# Coeffs are a list within the list of params
-	#coeffs=[-3.5902,-3.6476,1.000055786,0.000057921,0.000120263,1.000246524,-0.16793649,-0.20200588,-0.14784137,0.156522376,-0.10951879,0.514530480,-0.17102246,0.297778067,0.354187830,0.152300631,0.220135105,-0.08607051,0.021139762,-1.08764398]
-	coeffs=[0.,0.,1.,0.,0.,1.0,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.] 
+			# Solve for the star coordinates in the another image
+			# using the DAOMASTER .mch coefficients
 
-	# Solve for the star coordinates in the another image
-	# using the DAOMASTER .mch coefficients
+			params = [ x0, y0, args.imagedim[0], args.imagedim[1], coeffs[file_loop] ]
+			
+			x, y = fsolve(map_XY_coord, guess_coord, params)
 
-	params = [ x0, y0, args.imagedim[0], args.imagedim[1], coeffs ]
-	
-	x, y = fsolve(map_XY_coord, guess_coord, params)
+			#print(x,y)
 
-	print(x,y)
-	
+
 
 
 if __name__ == "__main__":
 	"""
+	Generate
 	"""
 
 	# Parse command line input
