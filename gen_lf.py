@@ -22,7 +22,10 @@ def check_args_input(args):
 	"""
 
 	if args.nartstar > 2000: print("Warning: A large number of artificial stars can impact the accuracy of the photometry by introducing crowding effects.")
+
 	assert args.magrange[0] < args.magrange[1], "The magnitude range must start with the lower bound. The lower bound also cannot be equal to the upper bound."
+
+	assert args.cslope != 0, "The slope of the RGB/AGB luminosity functions must be non-zero. For a constant color, use a very steep slope such as -9999."
 
 
 def collect_args():
@@ -35,14 +38,20 @@ def collect_args():
 		help="Increase output verbosity")
 	parser.add_argument("-p", "--plots", action="store_true",
         	help="Show plots of probability mass function, CDFs, and the luminosity function.")
-	parser.add_argument("-s","--slope", type=float, default=0.0, 
-		help='Slope of luminosity function (dex). Default slope is zero (uniform distribution)')
 	parser.add_argument("-nstar", "--nartstar", type=int, default = 2000, 
 		help="number of artificial stars in the luminosity function")
 	parser.add_argument("-magrange", "--magrange", type=float, nargs='+',
 		help="Min then Max value of the luminosity function",required=True)
 	parser.add_argument("-o", "--outfile", type=argparse.FileType('w'),
                 help="filename to contain the output luminosity function", default="lum_fcn.dat")	
+	parser.add_argument("-c", "--colors", type=float, nargs='+',
+                help="Color range for the artifical stars",required=True)
+	parser.add_argument("-cs","--cslope", type=float, default=-9999., 
+        	help='Slope of color dependency. Default slope is zero (no dependency)')
+	parser.add_argument("-ls","--lslope", type=float, default=0.0, 
+        	help='Slope of luminosity function (dex). Default slope is zero (uniform distribution)')
+
+
 
 	args = parser.parse_args()
 
@@ -74,7 +83,7 @@ def gen_prob_mass_fcn(args, star_mags):
 
 	scale_fact = np.max(star_mags)
 
-	prob_mass_fcn = [10.**( args.slope * x/scale_fact ) for x in star_mags]
+	prob_mass_fcn = [10.**( args.lslope * x/scale_fact ) for x in star_mags]
 	                                                                                       
 	# Normalize the probability mass function
 	# In general, this step is not necessary
@@ -86,6 +95,31 @@ def gen_prob_mass_fcn(args, star_mags):
 	norm_prob_mass_fcn = [ x/total_prob_mass for x in prob_mass_fcn ]
 
 	return norm_prob_mass_fcn
+
+
+def gen_star_color(args, star_mag):
+	"""
+	Star_mag is the primary filter.
+	"""
+
+	# Color at tip is defined to be the center
+	# of the specified color range. 
+	# First evaluate the middle color for
+	# a star with magnitude star_mag:
+	# line: args.magrange[0] - star_mag = args.cslope[0] * ( mid_star_color  - mid_color )
+
+	mid_color = 0.5 * ( args.colors[0] + args.colors[1] )
+
+	mid_star_color = mid_color + (star_mag - args.magrange[0])/args.cslope 
+
+	# Centered on mid color, have star color be +/- 0.5 * min_max_color 
+
+	min_max_color =  args.colors[1] - args.colors[0]
+
+	star_color = mid_star_color +  min_max_color * ( np.random.uniform() - 0.5 ) 
+	#print(star_mag,mid_star_color,min_max_color,star_color)
+	return star_color
+
 
 
 def gen_lf_from_CDF(args, CDF, star_mags):
@@ -115,7 +149,7 @@ def gen_lf_from_CDF(args, CDF, star_mags):
 
 	# Array to hold the obtained star magnitudes
 	# that model the luminosity function
-	lum_fcn = np.zeros( args.nartstar )
+	lum_fcn = np.zeros( (args.nartstar, 2), dtype=float)
 	
 	# Loop through and obtain star magnitudes for
 	# the specified number of times
@@ -149,7 +183,13 @@ def gen_lf_from_CDF(args, CDF, star_mags):
 
 		# Add star with matching index to luminosity function
 
-		lum_fcn[ el ] = star_mags[ closest_index_in_CDF ] 
+		star_mag = star_mags[closest_index_in_CDF] 
+
+		star_color = gen_star_color(args,star_mag)	
+
+		lum_fcn[el,0] = star_mag
+		lum_fcn[el,1] = star_mag + star_color
+
 
 	return lum_fcn
 
@@ -193,6 +233,7 @@ def gen_lum_fcn(args):
 
 	lum_fcn = gen_lf_from_CDF( args, CDF, star_mags )
 
+
 	# Show plots if requested
 
 	if args.plots:
@@ -220,9 +261,17 @@ def write_lf(args, lum_fcn):
 		working directory.
 	"""
 
+	# For later convenience, sort with increasing mag
+	# for the primary filter
+
+	lum_fcn = lum_fcn[np.argsort(lum_fcn[:,0])]
+
 	with args.outfile as f:
-		for el in lum_fcn:
-			f.write( "{:15.3f}\n".format(el) )
+		for el in range(len(lum_fcn[:])):	
+			filter1_mag=lum_fcn[el,0]
+			filter2_mag=lum_fcn[el,1]
+			f.write( '{:8.3f} {:8.3f}\n'.format(filter1_mag,filter2_mag) )
+
 
 
 if __name__ == "__main__":

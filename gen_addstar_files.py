@@ -87,8 +87,6 @@ def collect_args():
                 help="The RGB and AGB luminosity functions",required=True)
 	parser.add_argument("-mf", "--matchfile", type=argparse.FileType('r'),
                 help="DAOMASTER match file",required=True)
-	parser.add_argument("-c", "--colors", type=float, nargs='+',
-                help="Color range for the artifical stars",required=True)
 
 	args = parser.parse_args()
 
@@ -212,13 +210,6 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	say at most 2000 stars, this performs reasonably quickly.
 	"""
 
-
-	# Sort with increasing magnitude for some computation 
-        # speed when adjusting for the RGB:AGB ratio
-                                                               
-	rgb_lum_fcn.sort()
-	agb_lum_fcn.sort()	
-
 	# Get initial ratio of RGB:AGB to match
 	# the specified ratio
 	
@@ -248,7 +239,9 @@ def load_lfs(args):
 	# so for simplicity use built in Python line reader
 
 	with args.lfs[0] as f:
-		rgb_lum_fcn = [float(line) for line in f.readlines()]
+		rgb_lum_fcn = [line.split() for line in f.readlines()]
+	print(rgb_lum_fcn[0][-1])
+	exit(0)
 	with args.lfs[1] as f:
         	agb_lum_fcn = [float(line) for line in f.readlines()]
 
@@ -447,9 +440,7 @@ def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
 			
 			x, y = fsolve(map_XY_coord, guess_coord, params)
 
-
-			
-			print( '{:9d} {:<8.3f} {:8.3f} {:7.3f}'.format(id_el,x,y,star_mag) )
+			print( '{:7} {:8.3f} {:8.3f} {:7.3f}'.format(id_el,x,y,star_mag) )
 
 
 
@@ -467,10 +458,14 @@ if __name__ == "__main__":
 	# Load the luminosity functions derived in gen_lf.py
 	# Based on the desired ratio RGB:AGB, adjust the populations 
 
+	exit(0)
+
 	rgb_lum_fcn, agb_lum_fcn = load_lfs(args)	
 
 	# Generate addstar files with the luminosity functions
 	# and the specified (uniform) color range
+
+	exit(0)
 
 	gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn)
 
