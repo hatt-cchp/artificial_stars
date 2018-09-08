@@ -1,14 +1,15 @@
 N_artstar 	2000		# Number of artificial stars per image/iteration
-TRGB_mag 	12.0		# instrumental mag of input TRGB, same as RGB_min
-RGB_max 	22.0		# Extent of RGB below input TRGB mag
-AGB_min 	11.0		# Extent of AGB above the TRGB mag 
+TRGB_mag 	18.0		# instrumental mag of input TRGB; RGB_min is TRGB_mag
+RGB_max 	20.0		# Extent of RGB below input TRGB mag
+AGB_min 	17.0		# Extent of AGB above the TRGB mag; AGB_max is RGB_max  
 RGB_slope 	0.3		# Slope of RGB in dex
 AGB_slope 	0.1		# Slope of AGB in dex
 X_image_dim	4096		# Size of image X-dimension in pixels
 Y_image_dim	2048		# Size of image Y-dimension in pixels
 RGB_AGB_ratio	1.0		# Ratio of RGB to AGB stars at the TRGB
-TRGB_interface	0.25		# TRGB interface magnitude range
+TRGB_range	0.25		# TRGB interface magnitude range
 min_color	1.1		# Blue edge of RGB
 max_color	1.3		# Red edge of RGB
-color_slope	-9999		# Slope of the RGB (mag/color)
+color_distr	u		# Random distribution of color: uniform (u) or normal (n)
+color_slope	-6		# Slope of the RGB (mag/color)
 match_file	all.mch		# Match file used for real dataset 

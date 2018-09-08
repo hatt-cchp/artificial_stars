@@ -42,6 +42,8 @@ def collect_args():
 		help="number of artificial stars in the luminosity function")
 	parser.add_argument("-magrange", "--magrange", type=float, nargs='+',
 		help="Min then Max value of the luminosity function",required=True)
+	parser.add_argument("-tm", "--trgbmag", type=float,
+                help="Magnitude of TRGB", required=True)
 	parser.add_argument("-o", "--outfile", type=argparse.FileType('w'),
                 help="filename to contain the output luminosity function", default="lum_fcn.dat")	
 	parser.add_argument("-c", "--colors", type=float, nargs='+',
@@ -50,8 +52,8 @@ def collect_args():
         	help='Slope of color dependency. Default slope is zero (no dependency)')
 	parser.add_argument("-ls","--lslope", type=float, default=0.0, 
         	help='Slope of luminosity function (dex). Default slope is zero (uniform distribution)')
-
-
+	parser.add_argument("-cd","--color_distr", type=str, choices=["u","n"],default="u",
+        	help='The distribution of colors in the CMD: uniform or normal')
 
 	args = parser.parse_args()
 
@@ -106,18 +108,24 @@ def gen_star_color(args, star_mag):
 	# of the specified color range. 
 	# First evaluate the middle color for
 	# a star with magnitude star_mag:
-	# line: args.magrange[0] - star_mag = args.cslope[0] * ( mid_star_color  - mid_color )
+	# line: star_mag - trgbmag = args.cslope[0] * ( mid_star_color  - mid_color )
 
 	mid_color = 0.5 * ( args.colors[0] + args.colors[1] )
 
-	mid_star_color = mid_color + (star_mag - args.magrange[0])/args.cslope 
+	mid_star_color = mid_color + (star_mag - args.trgbmag)/args.cslope 
 
 	# Centered on mid color, have star color be +/- 0.5 * min_max_color 
 
 	min_max_color =  args.colors[1] - args.colors[0]
 
-	star_color = mid_star_color +  min_max_color * ( np.random.uniform() - 0.5 ) 
-	#print(star_mag,mid_star_color,min_max_color,star_color)
+	# Give a randomized color to the artficial star
+	# based on either a uniform or normal distribution
+
+	if args.color_distr == "u": rand_color_shift =   min_max_color * ( np.random.uniform() - 0.5 ) 
+	elif args.color_distr == "n": rand_color_shift =  np.random.normal(0, 0.5*min_max_color)
+
+	star_color = mid_star_color + rand_color_shift
+	
 	return star_color
 
 

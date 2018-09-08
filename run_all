@@ -29,28 +29,29 @@ AGB_slope=`grep "AGB_slope" input_params | awk -F ' ' ' {print $2}' | bc`
 X_image_dim=`grep "X_image_dim" input_params | awk -F ' ' ' {print $2}' | bc` 
 Y_image_dim=`grep "Y_image_dim" input_params | awk -F ' ' ' {print $2}' | bc` 
 RGB_AGB_ratio=`grep "RGB_AGB_ratio" input_params | awk -F ' ' ' {print $2}' | bc` 
-TRGB_interface=`grep "TRGB_interface" input_params | awk -F ' ' ' {print $2}' | bc` 
+TRGB_range=`grep "TRGB_range" input_params | awk -F ' ' ' {print $2}' | bc` 
 min_color=`grep "min_color" input_params | awk -F ' ' ' {print $2}' | bc` 
 max_color=`grep "max_color" input_params | awk -F ' ' ' {print $2}' | bc` 
 color_slope=`grep "color_slope" input_params | awk -F ' ' ' {print $2}' | bc` 
-match_file=`grep "match_file" input_params | awk -F ' ' '{print $2}' ` 
+match_file=`grep "match_file" input_params | awk -F ' ' '{print $2}'` 
+color_distr=`grep "color_distr" input_params | awk -F ' ' '{print $2}'`
 
 
 
 # Generate the RGB luminosity function
 
 python gen_lf.py --nartstar $Nartstar --magrange $TRGB_mag $RGB_max --lslope $RGB_slope --outfile rgb_lum_fcn.dat \
-	--colors $min_color $max_color --cslope $color_slope
+	--colors $min_color $max_color --cslope $color_slope --color_distr $color_distr --trgbmag $TRGB_mag
 
 # Generate the AGB luminosity function
 
 python gen_lf.py --nartstar $Nartstar --magrange $AGB_min $RGB_max --lslope $AGB_slope --outfile agb_lum_fcn.dat \
-	--colors $min_color $max_color --cslope $color_slope
+	--colors $min_color $max_color --cslope $color_slope --color_distr $color_distr --trgbmag $TRGB_mag
 
 # Generate the ADDSTAR files
 
 python gen_addstar_files.py --lfs rgb_lum_fcn.dat agb_lum_fcn.dat --imagedim $X_image_dim $Y_image_dim \
-	--RGB_AGB_ratio $RGB_AGB_ratio --trgbmag $TRGB_mag --nartstar $Nartstar --matchfile $match_file
+	--RGB_AGB_ratio $RGB_AGB_ratio --trgbmag $TRGB_mag --nartstar $Nartstar --matchfile $match_file 
 
 
 

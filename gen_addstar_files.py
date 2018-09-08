@@ -108,9 +108,9 @@ def count_stars_in_range(lum_fcn, start_range, end_range):
 	# the next element (which will be the next highest
 	# element since the list is monotonically increasing) 
 
-	curr_position = bisect.bisect_left(lum_fcn,start_range)
+	curr_position = bisect.bisect_left(lum_fcn[:][0],start_range)
 
-	while lum_fcn[curr_position] <= end_range:
+	while lum_fcn[curr_position][0] <= end_range:
 		num_stars += 1.
 		curr_position += 1
 
@@ -183,6 +183,7 @@ def rebalance_lfs(args,rgb_lum_fcn,agb_lum_fcn):
 
 		rgb_lum_fcn = remove_star( rgb_lum_fcn )
 
+
 	return [rgb_lum_fcn, agb_lum_fcn]
 
 
@@ -211,7 +212,7 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
 
 	# Get initial ratio of RGB:AGB to match
-	# the specified ratio
+	# the specified ratio if not already set
 	
 	rgb_lum_fcn, agb_lum_fcn = rebalance_lfs(args, rgb_lum_fcn, agb_lum_fcn)
 
@@ -230,6 +231,22 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 	return [rgb_lum_fcn, agb_lum_fcn]
 
 
+def read_in_lf_file(lum_fcn_file):
+	"""
+	"""
+
+	# Read file lines into list
+
+	with lum_fcn_file as f:
+		lum_fcn = [line.split() for line in f.readlines()]
+
+	# Read in as strings, so convert to floats
+
+	for el in range(len(lum_fcn)):
+		lum_fcn[el][0]=float(lum_fcn[el][0]) 
+		lum_fcn[el][1]=float(lum_fcn[el][1]) 
+
+	return lum_fcn
 
 def load_lfs(args):
 	"""
@@ -238,12 +255,12 @@ def load_lfs(args):
 	# Luminosity functions are written as single column, 
 	# so for simplicity use built in Python line reader
 
-	with args.lfs[0] as f:
-		rgb_lum_fcn = [line.split() for line in f.readlines()]
-	print(rgb_lum_fcn[0][-1])
-	exit(0)
-	with args.lfs[1] as f:
-        	agb_lum_fcn = [float(line) for line in f.readlines()]
+	rgb_lum_fcn = read_in_lf_file(args.lfs[0])
+	agb_lum_fcn = read_in_lf_file(args.lfs[1])
+
+	#print(rgb_lum_fcn[:])
+	#print(agb_lum_fcn[0])
+	#exit(0)
 
 	# Re-balance the relative number of RGB:AGB stars and ensure 
 	# that the total number of stars does not exceed nartstar
@@ -342,16 +359,26 @@ def gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn):
 	"""
 	"""
 
-	min_color, max_color = args.colors[0], args.colors[1]
 	min_x_pos, max_x_pos = 0, args.imagedim[0]
 	min_y_pos, max_y_pos = 0, args.imagedim[1]
 
-	colors = [ min_color + np.random.uniform()*(max_color-min_color) for x in range( len(rgb_lum_fcn) + len(agb_lum_fcn) ) ]
 	x_pos  = [ min_x_pos + np.random.uniform()*(max_x_pos-min_x_pos) for x in range( len(rgb_lum_fcn) + len(agb_lum_fcn) ) ]
 	y_pos  = [ min_y_pos + np.random.uniform()*(max_y_pos-min_y_pos) for x in range( len(rgb_lum_fcn) + len(agb_lum_fcn) ) ]
 
-	return [colors, x_pos, y_pos]
+	return [x_pos, y_pos]
 
+
+def collect_file_headers(filebasenames):
+	"""
+	"""
+
+	headers= list()
+
+	for curr_file in filebasenames:
+		with open(filebasenames[0]+'.als') as myfile:
+        		headers.append([next(myfile) for x in range(3)])
+			
+	return headers
 
 
 def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
@@ -371,77 +398,86 @@ def gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn):
 
 	"""
 
-	# Assign random colors and positions 
+	# Assign random positions 
 	# Option to include own position input
 	
-	colors, x_pos, y_pos = gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn)	
+	x_pos, y_pos = gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn)	
 	
 	# Read in the .mch file filenames, coefficients, and filter/exptime info
 
 	filebasenames, coeffs, filter_and_ref_exptime = extract_mch_file_contents(args)
 
+	# Get file header from .als files to give to .add files
+
+	headers = collect_file_headers(filebasenames)
+
 	# Primary filter is designated as the first one present in the mch file
 	# The primary filter is assumed to be the longer wavelength passband,
 	# and colors should be input with that notation in mind.
 
-	for key in filter_and_ref_exptime:
-		primary_filter = key
-		break
+	primary_filter = list(filter_and_ref_exptime.keys())[0]
 
 	# Loop through each file, transform coordinates
 	# for each images and add artificial stars to .add files
 
 	for file_loop in range( len(filebasenames) ):
 
-		# Adjust for exposure time differences to ensure the correct S/N
-		# is given to each star. For the reference image (first appearance of 
-		# the filter in the .mch file), this value is zero.
+		with open(filebasenames[file_loop]+'.add','w') as f:
 
-		curr_filter, exptime_mag_diff = calc_exptime_mag_diff( filebasenames[file_loop], filter_and_ref_exptime ) 
+			# Write header info
 
-		# For each image, assign the correct star magnitudes and positions 
+			for header_el in headers[file_loop]:
+                        	f.write(header_el)				
 
-		for star_loop in range( len( rgb_lum_fcn) + len( agb_lum_fcn )  ):
+			# Adjust for exposure time differences to ensure the correct S/N
+			# is given to each star. For the reference image (first appearance of 
+			# the filter in the .mch file), this value is zero.
 
-			# Colors are assigned to the non-primary filter (any
-			# filter that follows the filter for the first image
-			# in the .mch file)			
+			curr_filter, exptime_mag_diff = calc_exptime_mag_diff( filebasenames[file_loop], filter_and_ref_exptime ) 
 
-			if curr_filter != primary_filter: 
-				color_offset = colors[star_loop]
-			else:	
-				color_offset = 0.
+			# For each image, assign the correct star magnitudes and positions 
 
+			for star_loop in range( len( rgb_lum_fcn) + len( agb_lum_fcn )  ):
 
-			# Assign large ID numbers (permissible by DAOPHOT) to distinguish
-                        # between real and artificial stars. RGB are set to 300k+
-                        # and AGB are 400k+.
+				# Colors are assigned to the non-primary filter (any
+				# filter that follows the filter for the first image
+				# in the .mch file)			
 
-			if star_loop < len( rgb_lum_fcn): 
-				id_el = int(3e5+star_loop)
-				star_mag = rgb_lum_fcn[star_loop] + color_offset - exptime_mag_diff
-			else: 
-				id_el = int(4e5+star_loop)	
-				star_mag = agb_lum_fcn[star_loop - len( rgb_lum_fcn )] + color_offset - exptime_mag_diff
+				if curr_filter != primary_filter: 
+					filter_index = 1	
+				else:	
+					filter_index = 0
 
 
-			# Use the reference coordinates x0, y0 as a first		
-                	# guess for the mapped coordinates. From coeffs,
-			# these are the first two values
+				# Assign large ID numbers (permissible by DAOPHOT) to distinguish
+                	        # between real and artificial stars. RGB are set to 300k+
+                	        # and AGB are 400k+.
 
-			guess_x, guess_y = coeffs[file_loop][0], coeffs[file_loop][1]
+				if star_loop < len( rgb_lum_fcn): 
+					id_el = int(3e5+star_loop)
+					star_mag = rgb_lum_fcn[star_loop][filter_index] - exptime_mag_diff
+				else: 
+					id_el = int(4e5+star_loop)	
+					star_mag = agb_lum_fcn[star_loop - len( rgb_lum_fcn )][filter_index] - exptime_mag_diff
+
+
+				# Use the reference coordinates x0, y0 as a first		
+                		# guess for the mapped coordinates. From coeffs,
+				# these are the first two values
+
+				guess_x, guess_y = coeffs[file_loop][0], coeffs[file_loop][1]
 	
-			guess_coord = (guess_x, guess_y)
+				guess_coord = (guess_x, guess_y)
 
-			# Solve for the star coordinates in the another image
-			# using the DAOMASTER .mch coefficients
+				# Solve for the star coordinates in the another image
+				# using the DAOMASTER .mch coefficients
 
-			params = [ x_pos[star_loop], y_pos[star_loop], args.imagedim[0], args.imagedim[1], coeffs[file_loop] ]
-			
-			x, y = fsolve(map_XY_coord, guess_coord, params)
+				params = [ x_pos[star_loop], y_pos[star_loop], args.imagedim[0], args.imagedim[1], coeffs[file_loop] ]
+				
+				x, y = fsolve(map_XY_coord, guess_coord, params)
 
-			print( '{:7} {:8.3f} {:8.3f} {:7.3f}'.format(id_el,x,y,star_mag) )
-
+				#print( '{:7} {:8.3f} {:8.3f} {:7.3f}'.format(id_el,x,y,star_mag) )
+				f.write( '{:7} {:8.3f} {:8.3f} {:7.3f}\n'.format(id_el,x,y,star_mag) )
 
 
 
@@ -458,14 +494,10 @@ if __name__ == "__main__":
 	# Load the luminosity functions derived in gen_lf.py
 	# Based on the desired ratio RGB:AGB, adjust the populations 
 
-	exit(0)
-
 	rgb_lum_fcn, agb_lum_fcn = load_lfs(args)	
 
 	# Generate addstar files with the luminosity functions
 	# and the specified (uniform) color range
-
-	exit(0)
 
 	gen_addstar_files(args, rgb_lum_fcn, agb_lum_fcn)
 
