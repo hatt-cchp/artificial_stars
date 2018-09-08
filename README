@@ -7,7 +7,93 @@
                                                             | |            | |    
                                                             |_|            |_| 
 
+---------------------------------------------------------------------------------
+
+The purpose of these Python routines is to 
+
+	(1) generate stellar luminosity functions (star magnitudes and abundances)
+	based on a number of user inputs to model, at the very least, the RGB and
+	AGB populations of a given target
+
+and
+
+	(2) generate ADDSTAR (*.add) files to be fed into the DAOPHOT ADDSTAR routine,
+	for the purpose of assessing the ability of DAOPHOT to recover stars of known
+	position and brightness.
 
 
--magnitude range
-	-
+The parameter file "input_params" provides customizability. These parameters include: 
+
+	-N_artstar:	The number of artificial stars per image/iteration. It is generally
+			desirable to have enough artificial stars per iteration such that
+			the number of iterations is decreased thereby saving computation 
+			time. Conversely, too great a number of artificial stars will
+			introduce stellar crowding effects that are not present in the
+			original imaging. 
+
+			Recommended: 2000 stars
+
+	-TRGB_mag:	The instrumental mag of the Tip of the Red Giant Branch. This value is
+			equivalent to a would-be variable called "RGB_min".
+
+	-RGB_max:	The extent of RGB below input TRGB mag
+
+			Recommended: TRGB_mag + 1 magnitude
+
+	-AGB_min:	Extent of AGB above the TRGB mag. Conversely, the would-be variable AGB_max 
+			is always set to be RGB_max, i.e. the same depth in the luminosity function.
+
+	-RGB_slope:	The slope of the RGB luminosity function in dex
+
+			Recommended: 0.3
+
+	-AGB_slope:	Slope of the AGB luminosity function in dex
+
+			Recommended: 0.1 to 0.5
+
+	-X_image_dim:	Size of the science image's X-dimension in pixels. This variable is
+			used to generate random locations for artificial stars to lie.
+	
+			Recommended: 4096 pixels for ACS/WFC
+
+	-Y_image_dim:	Size of the science image's Y-dimension in pixels.
+		
+			Recommended: 2048 pixels for ACS/WFC
+
+	-TRGB_range:	The magnitude range for what is considered "at the TRGB interface". Since
+			the range of TRGB magnitudes is extremely narrow, the interface is meant 
+			to capture the "environemnt" near the TRGB.
+
+	-RGB_AGB_ratio:	The ratio of RGB to AGB stars at the TRGB interface (see TRGB_range). The
+			ratio of RGB:AGB stars can be tiny (< 5%) or large (~50%). This abundance
+			is not often not known a priori, and may not be known during a research
+			project. The ratio of RGB:AGB used in the TRGB analysis (once artificial
+			stars are generated) can always be adjusted since the RGB and AGB luminosity
+			functions are modeled separately.
+
+			Recommended: 4.0
+
+	-min_color	The 'blue edge' of RGB at the magnitude of the TRGB.
+
+			Recommended: >= ~1.0 
+
+	-max_color	The red edge of RGB at the magnitude of the TRGB.
+
+			Recommended: <= 1.5
+
+	-color_distr:	The random distribution of colors for stars: uniform (u) or normal (n).
+			This feature will appear as a 'thickness' in the color-magnitude diagrams
+			of the RGB and AGB populations.
+
+	-color_slope	The slope of the RGB (mag/color) in color-magnitude space. This translates to
+			a color-dependency for stars of different magnitude. For no color-dependency,
+			this value is set to a large negative number. 
+
+			Recommended: -6
+
+	-match_file      all.mch         # Match file used for real dataset
+
+
+The shell script 'run_all' reads in the 'input_params' info and calls the Python routines to generate
+the output described in (1) and (2).
+
