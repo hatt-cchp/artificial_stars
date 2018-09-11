@@ -97,3 +97,17 @@ The parameter file "input_params" provides customizability. These parameters inc
 The shell script 'run_all' reads in the 'input_params' info and calls the Python routines to generate
 the output described in (1) and (2).
 
+The successful running of the 'run_all' script requires the following files in the working directory:
+
+	-match_file:	This file is the same as above. It will effectively give the basenames for the
+			other required files.
+
+	-als_files:	The *.add files have headers identical to that of the photometry files. In order
+			to be readable by DAOPHOT, sample *.als files from the real dataset are needed
+			to record the headers.
+
+	-fits_files	Exposure times of each of the images need to be read. This is best done by using the 
+			headers of original images since the routine ADDSTAR will need these images anyway
+			to insert the artificial stars into the images
+
+
