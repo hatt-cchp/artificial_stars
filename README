@@ -71,15 +71,15 @@ The parameter file "input_params" provides customizability. These parameters inc
 			stars are generated) can always be adjusted since the RGB and AGB luminosity
 			functions are modeled separately.
 
-			Recommended: 4.0
+			Recommended: 1.0 <= RGB:AGB <= 4.0
 
 	-min_color	The 'blue edge' of RGB at the magnitude of the TRGB.
 
-			Recommended: >= ~1.0 
+			Recommended: >= ~1.0 for F606W-F814W
 
 	-max_color	The red edge of RGB at the magnitude of the TRGB.
 
-			Recommended: <= 1.5
+			Recommended: <= 1.5 for F606W-F814W
 
 	-color_distr:	The random distribution of colors for stars: uniform (u) or normal (n).
 			This feature will appear as a 'thickness' in the color-magnitude diagrams
@@ -91,13 +91,16 @@ The parameter file "input_params" provides customizability. These parameters inc
 
 			Recommended: -6
 
-	-match_file      all.mch         # Match file used for real dataset
+	-match_file	Match file used for real dataset. The coefficients of this file will
+			determine the physical position of stars in all other images relative to the
+			first image listed in the file. This file is also used to register the names
+			of the *.als and *.fits files that are needed for header and exptime info.
 
 
 The shell script 'run_all' reads in the 'input_params' info and calls the Python routines to generate
 the output described in (1) and (2).
 
-The successful running of the 'run_all' script requires the following files in the working directory:
+The successful running of the 'run_all' script requires the following additional files in the working directory:
 
 	-match_file:	This file is the same as above. It will effectively give the basenames for the
 			other required files.
