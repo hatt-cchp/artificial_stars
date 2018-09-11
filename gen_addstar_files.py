@@ -16,7 +16,7 @@ def map_XY_coord(guess_coord, params):
 	"""
 	Use the DAOPHOT .mch file coefficients
 	to invert the DAOMASTER transformation equations
-	and find where stars in one images should lie in another
+	and find where stars in one image should lie in another
 
 	This function is combined with the fsolve routine to 
 	numerically approximate the values x and y that solve
@@ -52,18 +52,6 @@ def map_XY_coord(guess_coord, params):
 		 -y0 + LINEAR_TERMS_Y + QUAD_TERMS_Y + CUBIC_TERMS_Y )
 	
 
-def check_args_input(args):
-	"""
-	Force some of the command-line inputs
-	to adhere to certain boundary conditions.
-	"""
-
-	# Check existence of luminosity functions
-
-	pass
-
-
-
 def collect_args():
 	"""
 	Parse command-line arguments and store 
@@ -90,8 +78,6 @@ def collect_args():
 
 	args = parser.parse_args()
 
-	check_args_input(args)
-	                                                                            
 	return args
 
 def count_stars_in_range(lum_fcn, start_range, end_range):
@@ -104,13 +90,18 @@ def count_stars_in_range(lum_fcn, start_range, end_range):
 	num_stars=0.
 
 	# Get the first index that appears that matches
-	# the input value. If not match exists, return
+	# the input value. If no match exists, return
 	# the next element (which will be the next highest
 	# element since the list is monotonically increasing) 
 
-	curr_position = bisect.bisect_left(lum_fcn[:][0],start_range)
+	# Since working with lists, need to generate new list
+	# for the column. In future, can be sped up with array 
 
-	while lum_fcn[curr_position][0] <= end_range:
+	first_band_lum_fcn = [ item[0] for item in lum_fcn ]
+	
+	curr_position = bisect.bisect_left(first_band_lum_fcn,start_range)
+
+	while first_band_lum_fcn[curr_position] <= end_range:
 		num_stars += 1.
 		curr_position += 1
 
@@ -118,6 +109,8 @@ def count_stars_in_range(lum_fcn, start_range, end_range):
 
 def RGB_AGB_ratio_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
+	Computes the current ratio of RGB:AGB stars
+	at the TRGB interface
 	"""
 
 	start_range = args.trgbmag - args.trgbrange
@@ -137,14 +130,13 @@ def RGB_AGB_ratio_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
 
 def remove_star(lum_fcn):
 	"""
-	Want to remove stars from the entire 
+	Want to randomly remove stars from the entire 
 	luminosity function instead of just at the
 	TRGB interface. In some instances, the
 	RGB:AGB will therefore be unchanged.
 
 	Written as separate function to generalize the 
 	same operation for the RGB and AGB components
-
 	"""
 
 	# Always round down (floor) so that there is
@@ -213,8 +205,9 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 
 	# Get initial ratio of RGB:AGB to match
 	# the specified ratio if not already set
-	
+
 	rgb_lum_fcn, agb_lum_fcn = rebalance_lfs(args, rgb_lum_fcn, agb_lum_fcn)
+
 
 	# Enforce max nartstar condition
 
@@ -233,6 +226,8 @@ def adjust_RGB_AGB_ratio(args,rgb_lum_fcn,agb_lum_fcn):
 
 def read_in_lf_file(lum_fcn_file):
 	"""
+	Take the luminosity function
+	output from gen_lf.py and store values
 	"""
 
 	# Read file lines into list
@@ -257,10 +252,6 @@ def load_lfs(args):
 
 	rgb_lum_fcn = read_in_lf_file(args.lfs[0])
 	agb_lum_fcn = read_in_lf_file(args.lfs[1])
-
-	#print(rgb_lum_fcn[:])
-	#print(agb_lum_fcn[0])
-	#exit(0)
 
 	# Re-balance the relative number of RGB:AGB stars and ensure 
 	# that the total number of stars does not exceed nartstar
@@ -357,6 +348,8 @@ def calc_exptime_mag_diff(filebasename, filter_and_ref_exptime):
 
 def gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn):
 	"""
+	Assign random positions for the artificial stars 
+	relative to the first image in the sequence.
 	"""
 
 	min_x_pos, max_x_pos = 0, args.imagedim[0]
@@ -370,6 +363,7 @@ def gen_artstar_properties(args, rgb_lum_fcn, agb_lum_fcn):
 
 def collect_file_headers(filebasenames):
 	"""
+	Collect the header info from the .als files
 	"""
 
 	headers= list()
