@@ -99,13 +99,10 @@ def count_stars_in_range(lum_fcn, start_range, end_range):
 
 	first_band_lum_fcn = [ item[0] for item in lum_fcn ]
 	
-	curr_position = bisect.bisect_left(first_band_lum_fcn,start_range)
+	start_position = bisect.bisect_left(first_band_lum_fcn,start_range)
+	end_position = bisect.bisect_right(first_band_lum_fcn,end_range)
 
-	while first_band_lum_fcn[curr_position] <= end_range:
-		num_stars += 1.
-		curr_position += 1
-
-	return num_stars
+	return end_position-start_position
 
 def RGB_AGB_ratio_at_TRGB(args,rgb_lum_fcn,agb_lum_fcn):
 	"""
@@ -144,7 +141,8 @@ def remove_star(lum_fcn):
 
 	pos_to_remove = floor( np.random.uniform()*len(lum_fcn) )
                                                                       
-	lum_fcn.pop( pos_to_remove )
+	#lum_fcn.pop( pos_to_remove )
+	del lum_fcn[pos_to_remove]
 
 	return lum_fcn
 
@@ -301,8 +299,10 @@ def extract_mch_file_contents(args):
 		# Remove 6th and 7th values: average mag offset 
 		# and other non-essential info
 
-		coeff.pop(6) # shifts list left
-		coeff.pop(6)	
+		#coeff.pop(6) # shifts list left
+		#coeff.pop(6)	
+		del coeff[6] # del apparently faster than pop
+		del coeff[6]
 
 		coeffs.append(coeff)
 
